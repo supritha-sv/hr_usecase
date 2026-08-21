@@ -1,0 +1,104 @@
+# HR Contract Extraction Pipeline
+
+Extracts 20 key fields from contract PDFs (MSA / NDA) using a local LLM,
+validates them, stores each contract as a row in a master Excel workbook,
+and displays everything on an interactive dashboard.
+
+```
+PDF(s) → text extraction (+OCR fallback) → local LLM (Ollama) → validation
+       → append row to contracts_master.xlsx → view on Streamlit dashboard
+```
+
+## 1. Setup (one time)
+
+```bash
+# Install Ollama and pull a model
+# https://ollama.com/download
+ollama pull phi4-mini          # recommended - good accuracy/speed balance
+# (llama3.2:1b also works but is much weaker on structured extraction)
+
+# Install Python dependencies
+pip install -r requirements.txt
+```
+
+Open `extract_to_excel.py` and set your own company name near the top:
+
+```python
+OWN_COMPANY_NAME = "OneNextGen Automation Private Limited"
+OWN_COMPANY_ALIASES = ["OneNextGen Automation", "OneNextGen", "OneNextGenAutomation"]
+```
+
+This tells the model which company is "us" so it never mistakes our own
+details for the partner's.
+
+## 2. Extract a contract and store it in Excel
+
+```bash
+# One document
+python extract_to_excel.py --msa "contracts/acme_msa.pdf"
+
+# MSA + NDA for the same partner, merged into a single row
+python extract_to_excel.py --msa "contracts/acme_msa.pdf" --nda "contracts/acme_nda.pdf"
+
+# Custom model / output file
+python extract_to_excel.py --msa "contracts/acme_msa.pdf" --model qwen3:8b --output contracts.xlsx
+```
+
+Run it once per partner/contract. Each run appends a new row to
+`contracts_master.xlsx` (created automatically on the first run). Rows with
+missing/uncertain fields are highlighted and listed in the `Review Reasons`
+column.
+
+## 3. View the dashboard
+
+```bash
+streamlit run dashboard.py
+# or, for a custom file:
+streamlit run dashboard.py -- --file contracts.xlsx
+```
+
+This opens a browser dashboard with:
+- KPIs: total contracts, flagged-for-review count, signed count, contracts expiring in the next 60 days
+- Charts: review status split, governing law breakdown, payment terms by partner
+- A review queue table for anything that needs manual verification
+- A searchable, filterable, downloadable table of every contract
+
+Click **🔄 Refresh data** in the sidebar after adding new contracts to reload
+the workbook without restarting the dashboard.
+
+## 3b. Upload contracts from the browser (no command line)
+
+The dashboard's **📤 Upload Contract PDFs** section puts the whole extraction
+pipeline behind one button:
+
+1. **Upload** all your contract PDFs at once (drag & drop, multi-select) —
+   MSA(s), NDA(s), or any other agreement.
+2. Optionally correct each file's **Document Type** in the little table
+   (MSA / NDA / Other is auto-guessed from the filename).
+3. Pick the **Ollama model** (`phi4-mini` recommended) and click
+   🚀 **Process & Extract**. A progress panel shows text extraction, OCR,
+   the LLM call, the merge (when you upload several documents) and validation.
+4. **Review** the extracted fields in a preview table. Anything uncertain is
+   flagged in the review notes and highlighted.
+5. Click ✅ **Append to Excel workbook** to write the record to
+   `contracts_master.xlsx`. The dashboard auto-refreshes to show the new row.
+
+You can mix MSA + NDA in a single upload and they are merged into one
+partner record, exactly like the command-line flow. The pipeline module is
+imported lazily, so viewers who only read the dashboard never wait on the
+PaddleOCR engine.
+
+## Notes on accuracy
+
+- **Model choice matters a lot.** `llama3.2:1b` is fast but frequently
+  produces wrong/unrelated values on a 20-field schema — use `phi4-mini` or
+  `qwen3:8b` if your machine can run them.
+- The prompt explicitly tells the model which company is "yours" so it
+  never extracts your own details into the partner fields; a safety check
+  in `validate_record()` catches it anyway and flags it for review if it
+  slips through.
+- Scanned/signed pages are OCR'd automatically with PaddleOCR — no manual
+  step needed.
+- Every field the model couldn't find is `null`, not guessed — genuinely
+  missing information shows up as a review flag instead of a hallucinated
+  value.

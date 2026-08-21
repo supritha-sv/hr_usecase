@@ -1,0 +1,10 @@
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.env
+.streamlit/secrets.toml
+*.log
+.DS_Store
+contracts_master.xlsx
