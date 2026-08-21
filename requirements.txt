@@ -2,7 +2,8 @@ opencv-python-headless
 pdfplumber
 PyMuPDF
 paddleocr==2.7.3
-paddlepaddle
+paddlepaddle==2.6.2
+numpy<2
 onnxruntime
 paddle2onnx<2
 ollama
