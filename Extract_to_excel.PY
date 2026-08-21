@@ -48,7 +48,6 @@ from dateutil.relativedelta import relativedelta
 import pdfplumber
 import fitz  # PyMuPDF - renders scanned pages as images for OCR
 from paddleocr import PaddleOCR
-import onnxruntime as ort
 import ollama
 from pydantic import BaseModel, ValidationError, field_validator
 
@@ -120,79 +119,18 @@ FIELD_DISPLAY_NAMES = {
 # ---------------------------------------------------------------------------
 # PADDLEOCR ENGINE (loaded once, reused across all pages/documents)
 # ---------------------------------------------------------------------------
-def _prepare_onnx_models() -> dict[str, str]:
-    """Convert PaddleOCR's cached Paddle models to ONNX files once."""
-    model_root = Path.home() / ".paddleocr" / "whl"
-    model_dirs = {
-        "det_model_dir": next(model_root.glob("det/en/*"), None),
-        "rec_model_dir": next(model_root.glob("rec/en/*"), None),
-        "cls_model_dir": next(model_root.glob("cls/*"), None),
-    }
-    if any(model_dir is None for model_dir in model_dirs.values()):
-        print("Downloading PaddleOCR models for ONNX conversion...")
-        PaddleOCR(use_angle_cls=True, lang="en", show_log=False)
-        model_dirs = {
-            "det_model_dir": next(model_root.glob("det/en/*"), None),
-            "rec_model_dir": next(model_root.glob("rec/en/*"), None),
-            "cls_model_dir": next(model_root.glob("cls/*"), None),
-        }
-
-    onnx_models = {}
-    for model_type, model_dir in model_dirs.items():
-        if model_dir is None:
-            raise FileNotFoundError(f"PaddleOCR {model_type} was not downloaded")
-        onnx_path = model_dir.with_suffix(".onnx")
-        if not onnx_path.exists():
-            # Resolve the paddle2onnx console script cross-platform instead of
-            # assuming the Windows venv layout (venv/Scripts/paddle2onnx.exe).
-            # On Linux/macOS pip installs it at venv/bin/paddle2onnx with no
-            # extension; on Windows it's venv/Scripts/paddle2onnx.exe.
-            venv_bin_dir = Path(sys.executable).parent
-            exe_name = "paddle2onnx.exe" if sys.platform.startswith("win") else "paddle2onnx"
-            paddle2onnx_bin = venv_bin_dir / exe_name
-            if not paddle2onnx_bin.exists():
-                # Fall back to whatever's on PATH (covers non-standard layouts)
-                found = shutil.which("paddle2onnx")
-                if found is None:
-                    raise FileNotFoundError(
-                        f"Could not locate the paddle2onnx executable (looked in "
-                        f"{paddle2onnx_bin} and on PATH). Is the paddle2onnx package installed?"
-                    )
-                paddle2onnx_bin = Path(found)
-
-            result = subprocess.run(
-                [
-                    str(paddle2onnx_bin),
-                    "--model_dir",
-                    str(model_dir),
-                    "--model_filename",
-                    "inference.pdmodel",
-                    "--params_filename",
-                    "inference.pdiparams",
-                    "--save_file",
-                    str(onnx_path),
-                    "--opset_version",
-                    "11",
-                ],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                raise RuntimeError(
-                    "paddle2onnx conversion failed for "
-                    f"{model_dir}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
-                )
-        onnx_models[model_type] = str(onnx_path)
-    return onnx_models
-
-
-print("Loading PaddleOCR engine with ONNX Runtime (first run prepares model files, please wait)...")
-_onnx_models = _prepare_onnx_models()
+# NOTE: previously this converted PaddleOCR's cached models to ONNX (via a
+# subprocess call to the paddle2onnx CLI) and ran inference through
+# onnxruntime. That conversion step was unreliable in this environment (wrong
+# path on Linux, then the paddle2onnx binary itself crashing with no error
+# output - likely a native/ABI incompatibility with paddle2onnx<2). Dropping
+# ONNX entirely and using PaddleOCR's native paddle inference engine removes
+# that whole failure surface; it's the default, well-tested path and doesn't
+# need paddle2onnx or onnxruntime at all.
+print("Loading PaddleOCR engine (first run downloads model files, please wait)...")
 _paddle_engine = PaddleOCR(
     use_angle_cls=True,
     lang='en',
-    use_onnx=True,
-    **_onnx_models,
     show_log=False,
 )
 
