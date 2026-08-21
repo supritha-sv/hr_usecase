@@ -160,7 +160,7 @@ def _prepare_onnx_models() -> dict[str, str]:
                     )
                 paddle2onnx_bin = Path(found)
 
-            subprocess.run(
+            result = subprocess.run(
                 [
                     str(paddle2onnx_bin),
                     "--model_dir",
@@ -174,8 +174,14 @@ def _prepare_onnx_models() -> dict[str, str]:
                     "--opset_version",
                     "11",
                 ],
-                check=True,
+                capture_output=True,
+                text=True,
             )
+            if result.returncode != 0:
+                raise RuntimeError(
+                    "paddle2onnx conversion failed for "
+                    f"{model_dir}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+                )
         onnx_models[model_type] = str(onnx_path)
     return onnx_models
 
