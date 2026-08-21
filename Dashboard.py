@@ -223,7 +223,9 @@ def _start_processing(uploaded_files, doc_types, model):
     st.session_state["_tmp_paths"] = tmp_paths
     st.session_state["_log"] = []
     st.session_state["_extracting"] = True
-    st.rerun()  # full-page: disables the uploader/editor outside the fragment
+    # No explicit st.rerun() needed: Streamlit auto-reruns after on_click
+    # callbacks finish, which disables the uploader/editor outside the
+    # fragment on its own.
 
 
 def _stop_processing():
@@ -237,7 +239,8 @@ def _stop_processing():
 
     _cleanup_after_run()
     st.session_state["_stop_notice"] = "Processing stopped by user."
-    st.rerun()  # full-page: clears the uploader and re-enables controls
+    # No explicit st.rerun() needed here either - see note in
+    # _start_processing above.
 
 
 @st.fragment(run_every=1)
