@@ -12,3 +12,4 @@ openpyxl
 pandas
 streamlit
 plotly
+opencv-python-headless
