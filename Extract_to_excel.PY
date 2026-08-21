@@ -38,6 +38,7 @@ import argparse
 import time
 import difflib
 import subprocess
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -142,9 +143,26 @@ def _prepare_onnx_models() -> dict[str, str]:
             raise FileNotFoundError(f"PaddleOCR {model_type} was not downloaded")
         onnx_path = model_dir.with_suffix(".onnx")
         if not onnx_path.exists():
+            # Resolve the paddle2onnx console script cross-platform instead of
+            # assuming the Windows venv layout (venv/Scripts/paddle2onnx.exe).
+            # On Linux/macOS pip installs it at venv/bin/paddle2onnx with no
+            # extension; on Windows it's venv/Scripts/paddle2onnx.exe.
+            venv_bin_dir = Path(sys.executable).parent
+            exe_name = "paddle2onnx.exe" if sys.platform.startswith("win") else "paddle2onnx"
+            paddle2onnx_bin = venv_bin_dir / exe_name
+            if not paddle2onnx_bin.exists():
+                # Fall back to whatever's on PATH (covers non-standard layouts)
+                found = shutil.which("paddle2onnx")
+                if found is None:
+                    raise FileNotFoundError(
+                        f"Could not locate the paddle2onnx executable (looked in "
+                        f"{paddle2onnx_bin} and on PATH). Is the paddle2onnx package installed?"
+                    )
+                paddle2onnx_bin = Path(found)
+
             subprocess.run(
                 [
-                    str(Path(sys.executable).parent / "Scripts" / "paddle2onnx.exe"),
+                    str(paddle2onnx_bin),
                     "--model_dir",
                     str(model_dir),
                     "--model_filename",
