@@ -7,4 +7,3 @@ __pycache__/
 .streamlit/secrets.toml
 *.log
 .DS_Store
-contracts_master.xlsx

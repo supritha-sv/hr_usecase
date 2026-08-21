@@ -95,7 +95,7 @@ def load_data(path: str) -> pd.DataFrame:
     df.columns = [c.strip() for c in df.columns]
     for date_col in [START_COL, END_COL]:
         if date_col in df.columns:
-            df[date_col] = pd.to_datetime(df[date_col], errors="coerce")
+            df[date_col] = pd.to_datetime(df[date_col], errors="coerce", format="mixed")
     # "Needs Review" is written to Excel as the STRING "Y"/"N" (see
     # append_row_to_excel in extract_to_excel.py, which converts the
     # Python bool to "Y"/"N" before saving) - not a real boolean. Normalize
@@ -252,7 +252,7 @@ def _processing_panel(uploaded_files, doc_types, model):
         st.button(
             "🕒 Extracting..." if processing else "🚀 Process & Extract",
             type="primary",
-            use_container_width=True,
+            width='stretch',
             disabled=processing or not uploaded_files,
             key="start_extract_btn",
             on_click=_start_processing,
@@ -261,7 +261,7 @@ def _processing_panel(uploaded_files, doc_types, model):
     with stop_col:
         st.button(
             "🛑 Stop",
-            use_container_width=True,
+            width='stretch',
             disabled=not processing,
             key="stop_extract_btn",
             on_click=_stop_processing,
@@ -372,7 +372,7 @@ if uploaded:
             ),
         },
         hide_index=True,
-        use_container_width=True,
+        width='stretch',
         num_rows="fixed",
         disabled=_processing,
         key=f"doc_type_editor_{st.session_state.get('_uploader_epoch', 0)}",
@@ -391,7 +391,7 @@ if pending_record and isinstance(pending_record, dict):
     preview_df = pd.DataFrame(
         [{pipeline.COLUMN_HEADERS.get(c, c): pending_record.get(c) for c in column_order}]
     )
-    st.dataframe(preview_df, use_container_width=True, hide_index=True)
+    st.dataframe(preview_df, width='stretch', hide_index=True)
     st.caption(
         f"Source file(s): `{pending_record.get('source_files')}`  ·  "
         f"Model: `{pending_record.get('model_used')}`  ·  Processed: `{pending_record.get('processed_at')}`"
@@ -403,7 +403,7 @@ if pending_record and isinstance(pending_record, dict):
     else:
         st.success("No review flags - all extracted fields look good.")
 
-    if st.button("✅ Append to Excel workbook", type="primary", use_container_width=True):
+    if st.button("✅ Append to Excel workbook", type="primary", width='stretch'):
         try:
             pipeline.append_row_to_excel(EXCEL_PATH, pending_record)
         except Exception as e:
@@ -504,7 +504,7 @@ with c1:
             hole=0.45,
         )
         fig.update_layout(margin=dict(t=10, b=10, l=10, r=10))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 
 with c2:
     st.subheader("Penalty Clause Present?")
@@ -520,14 +520,14 @@ with c2:
                 hole=0.45,
             )
             fig.update_layout(margin=dict(t=10, b=10, l=10, r=10))
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             st.info("No penalty clause data yet.")
 
 st.subheader("Contracts Expiring Soon (next 60 days)")
 if not expiring_soon.empty:
     exp_view = expiring_soon[["Partner Name", END_COL]].sort_values(END_COL)
-    st.dataframe(exp_view, use_container_width=True, hide_index=True)
+    st.dataframe(exp_view, width='stretch', hide_index=True)
 else:
     st.success("Nothing expiring in the next 60 days.")
 
@@ -541,7 +541,7 @@ review_queue = filtered[filtered["Needs Review"] == True]  # noqa: E712
 if not review_queue.empty:
     st.dataframe(
         review_queue[["Partner Name", "Review Notes"]],
-        use_container_width=True, hide_index=True,
+        width='stretch', hide_index=True,
     )
 else:
     st.success("No contracts currently flagged for review.")
@@ -558,7 +558,7 @@ if search:
     mask = filtered.apply(lambda row: row.astype(str).str.contains(search, case=False, na=False).any(), axis=1)
     table_view = filtered[mask]
 
-st.dataframe(table_view, use_container_width=True, hide_index=True)
+st.dataframe(table_view, width='stretch', hide_index=True)
 
 st.download_button(
     "⬇️ Download filtered data as CSV",
