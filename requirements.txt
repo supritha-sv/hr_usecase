@@ -1,3 +1,4 @@
+setuptools
 opencv-python-headless
 pdfplumber
 PyMuPDF
