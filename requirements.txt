@@ -1,7 +1,7 @@
 opencv-python-headless
 pdfplumber
 PyMuPDF
-paddleocr
+paddleocr==2.7.3
 paddlepaddle
 onnxruntime
 paddle2onnx<2
@@ -12,4 +12,3 @@ openpyxl
 pandas
 streamlit
 plotly
-opencv-python-headless
